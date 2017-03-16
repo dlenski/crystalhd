@@ -785,13 +785,13 @@ int chd_dec_pci_resume(struct pci_dev *pdev)
 }
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 24)
-static struct pci_device_id chd_dec_pci_id_table[] = {
+static const struct pci_device_id chd_dec_pci_id_table[] = {
 	{ PCI_VDEVICE(BROADCOM, 0x1612), 8 },
 	{ PCI_VDEVICE(BROADCOM, 0x1615), 8 },
 	{ 0, },
 };
 #else
-static struct pci_device_id chd_dec_pci_id_table[] = {
+static const struct pci_device_id chd_dec_pci_id_table[] = {
 /*	vendor, device, subvendor, subdevice, class, classmask, driver_data */
 	{ 0x14e4, 0x1612, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 8 },
 	{ 0x14e4, 0x1615, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 8 },
