@@ -1,17 +1,16 @@
-# Crystal HD Hardware Decoder Driver on Ubuntu 13.04 Linux kernel 3.8.0-25
+# Crystal HD Hardware Decoder Driver
 ## Broadcom BCM70012 & BCM70015
-
-After a lot a retries to get the rigth experience with the Crystal HD on Ubuntu, 
 
 **1. Install required files**
 
-    sudo apt-get install checkinstall git-core autoconf build-essential subversion dpkg-dev fakeroot pbuilder build-essential dh-make debhelper devscripts patchutils quilt git-buildpackage pristine-tar git yasm zlib1g-dev zlib-bin libzip-dev libx11-dev libx11-dev libxv-dev vstream-client-dev libgtk2.0-dev libpulse-dev libxxf86dga-dev x11proto-xf86dga-dev git libgstreamermm-0.10-dev libgstreamer0.10-dev automake libtool python-appindicator 
+    sudo apt-get update
+    sudo apt-get install linux-headers-`uname -r` git autoconf build-essential subversion dpkg-dev fakeroot pbuilder build-essential dh-make debhelper devscripts patchutils quilt git-buildpackage pristine-tar git yasm zlib1g-dev minizip libzip-dev libx11-dev libxv-dev vstream-client-dev libgtk2.0-dev libpulse-dev libxxf86dga-dev x11proto-xf86dga-dev git automake libtool libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev python-appindicator 
     
 **2. Ge the source**
 
 Get the driver source code from the git repository.
 
-    git clone https://github.com/dbason/crystalhd.git
+    git clone https://github.com/spear1403/crystalhd.git
 
 _The original repo source is available at git://git.linuxtv.org/jarod/crystalhd.git_
     
@@ -42,34 +41,5 @@ Use make command to compile driver. If you have multiple core processor then use
     
  Then you should see something like this:
  
-    [    4.349765] Loading crystalhd v3.10.0
-    [    4.349823] crystalhd 0000:02:00.0: Starting Device:0x1615
-    [    4.351848] crystalhd 0000:02:00.0: irq 43 for MSI/MSI-X
-    [  108.512135] crystalhd 0000:02:00.0: Opening new user[0] handle
-    [  258.976583] crystalhd 0000:02:00.0: Closing user[0] handle via ioctl with mode 10200
-
-Now is time to enjoy our FullHD content. 
-
-I'm using XMBC , VLC (2.1.0), Mplayer2, GStreamer because they are using (they should) the Crystal HD decoder libraries.
-
-For example , lets try VLC :
-
-    vlc --codec=crystalhd ourgreatfullhdmedia.mkv
-    
-Now runs smoothly rigth ?
-
-# After kernel update
-
-Reinstall the driver.
-
-    cd crystalhd/driver/linux
-    sudo make install
-
-
-Btw this instructions referred to http://knowledge.evot.biz/documentation/how-to-compile-and-install-the-broadcom-crystal-hd-hardware-decoder-bcm70012-70015-driver-on-ubuntu and fixed some issues appeared using a patch from M25 user at https://bbs.archlinux.org/viewtopic.php?pid=1253622#p1253622
-
-So, the sources on this repository are updated with the fixes and patches in order to make your life easier.
-
-## History
-
-See [HISTORY.md](HISTORY.md) for a rough history of the various versions of this driver floating around the web.
+    [  886.604511] Loading crystalhd v3.10.0
+    [  886.604588] crystalhd 0000:03:00.0: Starting Device:0x1615
