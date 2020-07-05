@@ -1093,7 +1093,7 @@ static const struct file_operations chd_dec_fops = {
 #endif /*CONFIG_COMPAT*/
 };
 
-static int __init chd_dec_init_chdev(struct crystalhd_adp *adp)
+static int chd_dec_init_chdev(struct crystalhd_adp *adp)
 {
 	struct device *xdev = &adp->pdev->dev;
 	struct device *dev;
@@ -1185,7 +1185,7 @@ static void chd_dec_release_chdev(struct crystalhd_adp *adp)
 	/*crystalhd_delete_elem_pool(adp); */
 }
 
-static int __init chd_pci_reserve_mem(struct crystalhd_adp *pinfo)
+static int chd_pci_reserve_mem(struct crystalhd_adp *pinfo)
 {
 	struct device *dev = &pinfo->pdev->dev;
 	int rc;
@@ -1213,13 +1213,13 @@ static int __init chd_pci_reserve_mem(struct crystalhd_adp *pinfo)
 		printk(KERN_ERR "Region request failed: %d\n", rc);
 		return rc;
 	}
-	
+
 	pinfo->i2o_addr = pci_ioremap_bar(pinfo->pdev, 0);
 	if (!pinfo->i2o_addr) {
 		printk(KERN_ERR "Failed to remap i2o region...\n");
 		return -ENOMEM;
 	}
-	
+
 	pinfo->mem_addr = pci_ioremap_bar(pinfo->pdev, 2);
 	if (!pinfo->mem_addr) {
 		printk(KERN_ERR "Failed to remap mem region...\n");
@@ -1247,7 +1247,7 @@ static void chd_pci_release_mem(struct crystalhd_adp *pinfo)
 }
 
 
-static void __exit chd_dec_pci_remove(struct pci_dev *pdev)
+static void chd_dec_pci_remove(struct pci_dev *pdev)
 {
 	struct crystalhd_adp *pinfo;
 	BC_STATUS sts = BC_STS_SUCCESS;
@@ -1275,7 +1275,7 @@ static void __exit chd_dec_pci_remove(struct pci_dev *pdev)
 	g_adp_info = NULL;
 }
 
-static int __init chd_dec_pci_probe(struct pci_dev *pdev,
+static int chd_dec_pci_probe(struct pci_dev *pdev,
 			     const struct pci_device_id *entry)
 {
 	struct device *dev = &pdev->dev;
@@ -1465,7 +1465,7 @@ MODULE_DEVICE_TABLE(pci, chd_dec_pci_id_table);
 static struct pci_driver bc_chd_driver __refdata = {
 	.name     = "crystalhd",
 	.probe    = chd_dec_pci_probe,
-	.remove   = __exit_p(chd_dec_pci_remove),
+	.remove   = chd_dec_pci_remove,
 	.id_table = chd_dec_pci_id_table,
 	.suspend  = chd_dec_pci_suspend,
 	.resume   = chd_dec_pci_resume

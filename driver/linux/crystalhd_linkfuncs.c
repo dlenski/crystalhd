@@ -473,8 +473,8 @@ bool crystalhd_link_start_device(struct crystalhd_hw *hw)
 	uint32_t dbg_options, glb_cntrl = 0, reg_pwrmgmt = 0;
 	struct device *dev;
 
-	if (!hw)
-		return -EINVAL;
+	if (!hw || !hw->adp || !hw->adp->pdev)
+		return false;
 
 	dev = &hw->adp->pdev->dev;
 
@@ -960,6 +960,9 @@ bool crystalhd_link_tx_list1_handler(struct crystalhd_hw *hw, uint32_t err_sts)
 void crystalhd_link_tx_isr(struct crystalhd_hw *hw, uint32_t int_sts)
 {
 	uint32_t err_sts;
+
+	if (!hw)
+		return;
 
 	if (int_sts & INTR_INTR_STATUS_L0_TX_DMA_DONE_INTR_MASK)
 		crystalhd_hw_tx_req_complete(hw, hw->tx_ioq_tag_seed + 0,
@@ -1999,21 +2002,14 @@ bool crystalhd_link_hw_interrupt_handle(struct crystalhd_adp *adp, struct crysta
 {
 	uint32_t intr_sts = 0;
 	uint32_t deco_intr = 0;
-	bool rc = false;
 
-	if (!adp || !hw->dev_started)
-		return rc;
+	if (!adp || !hw || !hw->dev_started)
+		return false;
 
 	hw->stats.num_interrupts++;
 
 	deco_intr = hw->pfnReadDevRegister(hw->adp, Stream2Host_Intr_Sts);
 	intr_sts  = hw->pfnReadFPGARegister(hw->adp, INTR_INTR_STATUS);
-
-	if (intr_sts) {
-		/* let system know we processed interrupt..*/
-		rc = true;
-		hw->stats.dev_interrupts++;
-	}
 
 	if (deco_intr && (deco_intr != 0xdeaddead)) {
 
@@ -2030,7 +2026,6 @@ bool crystalhd_link_hw_interrupt_handle(struct crystalhd_adp *adp, struct crysta
 
 		hw->pfnWriteDevRegister(hw->adp, Stream2Host_Intr_Sts, deco_intr);
 		hw->pfnWriteDevRegister(hw->adp, Stream2Host_Intr_Sts, 0);
-		rc = 1;
 	}
 
 	/* Rx interrupts */
@@ -2040,14 +2035,17 @@ bool crystalhd_link_hw_interrupt_handle(struct crystalhd_adp *adp, struct crysta
 	crystalhd_link_tx_isr(hw, intr_sts);
 
 	/* Clear interrupts */
-	if (rc) {
-		if (intr_sts)
-			hw->pfnWriteFPGARegister(hw->adp, INTR_INTR_CLR_REG, intr_sts);
+	if (intr_sts)
+		hw->pfnWriteFPGARegister(hw->adp, INTR_INTR_CLR_REG, intr_sts);
 
-		hw->pfnWriteFPGARegister(hw->adp, INTR_EOI_CTRL, 1);
+	hw->pfnWriteFPGARegister(hw->adp, INTR_EOI_CTRL, 1);
+
+	if (intr_sts) {
+		/* Let system know we have processed interrupts, and rc ret is always true unless invalid args. */
+		hw->stats.dev_interrupts++;
 	}
 
-	return rc;
+	return true;
 }
 
 /* Dummy private function */

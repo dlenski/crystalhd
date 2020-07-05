@@ -38,7 +38,7 @@
 BC_STATUS crystalhd_hw_open(struct crystalhd_hw *hw, struct crystalhd_adp *adp)
 {
 	struct device *dev;
-	if (!hw || !adp) {
+	if (!hw || !adp || !adp->pdev) {
 		printk(KERN_ERR "%s: Invalid Arguments\n", __func__);
 		return BC_STS_INV_ARG;
 	}
@@ -110,7 +110,10 @@ BC_STATUS crystalhd_hw_open(struct crystalhd_hw *hw, struct crystalhd_adp *adp)
 	hw->rx_pkt_tag_seed = 0x70029070;
 
 	hw->stop_pending = 0;
-	hw->pfnStartDevice(hw);
+	if (!hw->pfnStartDevice(hw)) {
+		printk(KERN_ERR "%s: Failed to Start Device! \n", __func__);
+		return BC_STS_ERROR;
+	}
 	hw->dev_started = true;
 
 	dev_dbg(dev, "Opening HW. hw:0x%lx, hw->adp:0x%lx\n",
@@ -121,9 +124,9 @@ BC_STATUS crystalhd_hw_open(struct crystalhd_hw *hw, struct crystalhd_adp *adp)
 
 BC_STATUS crystalhd_hw_close(struct crystalhd_hw *hw, struct crystalhd_adp *adp)
 {
-	if (!hw) {
+	if (!hw || !adp) {
 		printk(KERN_ERR "%s: Invalid Arguments\n", __func__);
-		return BC_STS_SUCCESS;
+		return BC_STS_INV_ARG;
 	}
 
 	if (!hw->dev_started)
@@ -390,12 +393,12 @@ BC_STATUS crystalhd_hw_tx_req_complete(struct crystalhd_hw *hw,
 	struct tx_dma_pkt *tx_req;
 
 	if (!hw || !list_id) {
-		printk(KERN_ERR "%s: Invalid Arg!!\n", __func__);
+		printk(KERN_ERR "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
 
 	tx_req = (struct tx_dma_pkt *)crystalhd_dioq_find_and_fetch(hw->tx_actq, list_id);
-	if (!tx_req) {
+	if (!tx_req || !tx_req->dio_req || !tx_req->cb_event) {
 		if (cs != BC_STS_IO_USER_ABORT)
 			dev_err(&hw->adp->pdev->dev, "Find/Fetch: no req!\n");
 		return BC_STS_NO_DATA;
@@ -1052,8 +1055,8 @@ BC_STATUS crystalhd_hw_resume(struct crystalhd_hw *hw)
 	hw->rx_list_post_index = 0;
 	hw->tx_list_post_index = 0;
 
-	if (hw->pfnStartDevice(hw)) {
-		dev_info(&hw->adp->pdev->dev, "Failed to Start Device!!\n");
+	if (!hw->pfnStartDevice(hw)) {
+		dev_info(&hw->adp->pdev->dev, "Failed to resume start device!\n");
 		return BC_STS_ERROR;
 	}
 

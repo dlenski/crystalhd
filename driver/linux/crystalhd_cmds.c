@@ -37,6 +37,11 @@ static struct crystalhd_user *bc_cproc_get_uid(struct crystalhd_cmd *ctx)
 	struct crystalhd_user *user = NULL;
 	int i;
 
+	if (!ctx) {
+		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+		return user;
+	}
+
 	for (i = 0; i < BC_LINK_MAX_OPENS; i++) {
 		if (!ctx->user[i].in_use) {
 			user = &ctx->user[i];
@@ -50,6 +55,11 @@ static struct crystalhd_user *bc_cproc_get_uid(struct crystalhd_cmd *ctx)
 int bc_get_userhandle_count(struct crystalhd_cmd *ctx)
 {
 	int i, count = 0;
+
+	if (!ctx) {
+		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+		return BC_STS_INV_ARG;
+	}
 
 	for (i = 0; i < BC_LINK_MAX_OPENS; i++) {
 		if (ctx->user[i].in_use)
@@ -159,7 +169,7 @@ static BC_STATUS bc_cproc_get_hwtype(struct crystalhd_cmd *ctx, crystalhd_ioctl_
 static BC_STATUS bc_cproc_reg_rd(struct crystalhd_cmd *ctx,
 				 crystalhd_ioctl_data *idata)
 {
-	if (!ctx || !idata)
+	if (!ctx || !ctx->hw_ctx || !idata)
 		return BC_STS_INV_ARG;
 	idata->udata.u.regAcc.Value = ctx->hw_ctx->pfnReadDevRegister(ctx->adp,
 					idata->udata.u.regAcc.Offset);
@@ -169,7 +179,7 @@ static BC_STATUS bc_cproc_reg_rd(struct crystalhd_cmd *ctx,
 static BC_STATUS bc_cproc_reg_wr(struct crystalhd_cmd *ctx,
 				 crystalhd_ioctl_data *idata)
 {
-	if (!ctx || !idata)
+	if (!ctx || !ctx->hw_ctx || !idata)
 		return BC_STS_INV_ARG;
 
 	ctx->hw_ctx->pfnWriteDevRegister(ctx->adp, idata->udata.u.regAcc.Offset,
@@ -181,7 +191,7 @@ static BC_STATUS bc_cproc_reg_wr(struct crystalhd_cmd *ctx,
 static BC_STATUS bc_cproc_link_reg_rd(struct crystalhd_cmd *ctx,
 				      crystalhd_ioctl_data *idata)
 {
-	if (!ctx || !idata)
+	if (!ctx || !ctx->hw_ctx || !idata)
 		return BC_STS_INV_ARG;
 
 	idata->udata.u.regAcc.Value = ctx->hw_ctx->pfnReadFPGARegister(ctx->adp,
@@ -192,7 +202,7 @@ static BC_STATUS bc_cproc_link_reg_rd(struct crystalhd_cmd *ctx,
 static BC_STATUS bc_cproc_link_reg_wr(struct crystalhd_cmd *ctx,
 				      crystalhd_ioctl_data *idata)
 {
-	if (!ctx || !idata)
+	if (!ctx || !ctx->hw_ctx || !idata)
 		return BC_STS_INV_ARG;
 
 	ctx->hw_ctx->pfnWriteFPGARegister(ctx->adp, idata->udata.u.regAcc.Offset,
@@ -206,7 +216,7 @@ static BC_STATUS bc_cproc_mem_rd(struct crystalhd_cmd *ctx,
 {
 	BC_STATUS sts = BC_STS_SUCCESS;
 
-	if (!ctx || !idata || !idata->add_cdata)
+	if (!ctx || !ctx->hw_ctx || !idata || !idata->add_cdata)
 		return BC_STS_INV_ARG;
 
 	if (idata->udata.u.devMem.NumDwords > (idata->add_cdata_sz / 4)) {
@@ -225,7 +235,7 @@ static BC_STATUS bc_cproc_mem_wr(struct crystalhd_cmd *ctx,
 {
 	BC_STATUS sts = BC_STS_SUCCESS;
 
-	if (!ctx || !idata || !idata->add_cdata)
+	if (!ctx || !ctx->hw_ctx || !idata || !idata->add_cdata)
 		return BC_STS_INV_ARG;
 
 	if (idata->udata.u.devMem.NumDwords > (idata->add_cdata_sz / 4)) {
@@ -312,7 +322,7 @@ static BC_STATUS bc_cproc_download_fw(struct crystalhd_cmd *ctx,
 
 	dev_dbg(chddev(), "Downloading FW\n");
 
-	if (!ctx || !idata || !idata->add_cdata || !idata->add_cdata_sz) {
+	if (!ctx || !ctx->hw_ctx || !idata || !idata->add_cdata || !idata->add_cdata_sz) {
 		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
@@ -355,7 +365,7 @@ static BC_STATUS bc_cproc_do_fw_cmd(struct crystalhd_cmd *ctx, crystalhd_ioctl_d
 	BC_STATUS sts;
 	uint32_t *cmd;
 
-	if (!(ctx->state & BC_LINK_INIT)) {
+	if ( !ctx || !idata || !(ctx->state & BC_LINK_INIT) || !ctx->hw_ctx) {
 		dev_dbg(dev, "Link invalid state do fw cmd %x \n", ctx->state);
 		return BC_STS_ERR_USAGE;
 	}
@@ -400,7 +410,7 @@ static void bc_proc_in_completion(struct crystalhd_dio_req *dio_hnd,
 		return;
 	}
 	if (sts == BC_STS_IO_USER_ABORT || sts == BC_STS_PWR_MGMT)
-		 return;
+		return;
 
 	dio_hnd->uinfo.comp_sts = sts;
 	dio_hnd->uinfo.ev_sts = 1;
@@ -411,6 +421,9 @@ static BC_STATUS bc_cproc_codein_sleep(struct crystalhd_cmd *ctx)
 {
 	wait_queue_head_t sleep_ev;
 	int rc = 0;
+
+	if (!ctx)
+		return BC_STS_INV_ARG;
 
 	if (ctx->state & BC_LINK_SUSPEND)
 		return BC_STS_PWR_MGMT;
@@ -437,7 +450,7 @@ static BC_STATUS bc_cproc_hw_txdma(struct crystalhd_cmd *ctx,
 	wait_queue_head_t event;
 	int rc = 0;
 
-	if (!ctx || !idata || !dio) {
+	if (!ctx || !ctx->hw_ctx || !idata || !dio) {
 		dev_err(dev, "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
@@ -578,7 +591,7 @@ static BC_STATUS bc_cproc_add_cap_buff(struct crystalhd_cmd *ctx,
 	struct crystalhd_dio_req *dio_hnd = NULL;
 	BC_STATUS sts = BC_STS_SUCCESS;
 
-	if (!ctx || !idata) {
+	if (!ctx || !ctx->hw_ctx || !idata) {
 		dev_err(dev, "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
@@ -616,6 +629,11 @@ static BC_STATUS bc_cproc_fmt_change(struct crystalhd_cmd *ctx,
 				     struct crystalhd_dio_req *dio)
 {
 	BC_STATUS sts = BC_STS_SUCCESS;
+
+	if (!ctx || !dio) {
+		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+		return BC_STS_INV_ARG;
+	}
 
 	sts = crystalhd_hw_add_cap_buffer(ctx->hw_ctx, dio, 0);
 	if (sts != BC_STS_SUCCESS)
@@ -678,6 +696,10 @@ static BC_STATUS bc_cproc_fetch_frame(struct crystalhd_cmd *ctx,
 static BC_STATUS bc_cproc_start_capture(struct crystalhd_cmd *ctx,
 					crystalhd_ioctl_data *idata)
 {
+	if (!ctx || !ctx->hw_ctx || !idata) {
+		return BC_STS_INV_ARG;
+	}
+
 	ctx->state |= BC_LINK_CAP_EN;
 
 	if( idata->udata.u.RxCap.PauseThsh )
@@ -710,7 +732,7 @@ static BC_STATUS bc_cproc_flush_cap_buffs(struct crystalhd_cmd *ctx,
 	struct device *dev = chddev();
 	struct crystalhd_rx_dma_pkt *rpkt;
 
-	if (!ctx || !idata) {
+	if (!ctx || !ctx->hw_ctx || !idata) {
 		dev_err(dev, "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
@@ -750,8 +772,8 @@ static BC_STATUS bc_cproc_get_stats(struct crystalhd_cmd *ctx,
 	bool readTxOnly = false;
 	unsigned long irqflags;
 
-	if (!ctx || !idata) {
-		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+	if (!ctx || !ctx->hw_ctx || !idata) {
+		dev_err(chddev(), "%s: Invalid Arg ctx,hw,data: 0x%lx 0x%lx 0x%lx\n", __func__, (uintptr_t)(ctx->hw_ctx), (uintptr_t)ctx, (uintptr_t)idata);
 		return BC_STS_INV_ARG;
 	}
 
@@ -833,6 +855,10 @@ get_out:
 static BC_STATUS bc_cproc_reset_stats(struct crystalhd_cmd *ctx,
 				      crystalhd_ioctl_data *idata)
 {
+	if (!ctx || !ctx->hw_ctx || !idata) {
+		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+		return BC_STS_INV_ARG;
+	}
 	crystalhd_hw_stats(ctx->hw_ctx, NULL);
 
 	return BC_STS_SUCCESS;
@@ -954,8 +980,8 @@ BC_STATUS crystalhd_suspend(struct crystalhd_cmd *ctx, crystalhd_ioctl_data *ida
 	struct crystalhd_rx_dma_pkt *rpkt = NULL;
 
 	if (!ctx || !idata) {
-		dev_err(dev, "Invalid Parameters\n");
-		return BC_STS_ERROR;
+		dev_err(dev, "%s: Invalid Arg\n", __func__);
+		return BC_STS_INV_ARG;
 	}
 
 	if (ctx->state & BC_LINK_SUSPEND)
@@ -970,7 +996,7 @@ BC_STATUS crystalhd_suspend(struct crystalhd_cmd *ctx, crystalhd_ioctl_data *ida
 
 	bc_cproc_mark_pwr_state(ctx, BC_HW_SUSPEND); /* going to suspend */
 
-	if (ctx->state & BC_LINK_CAP_EN) {
+	if (ctx->hw_ctx && ctx->state & BC_LINK_CAP_EN) {
 		// Clean any pending RX
 		crystalhd_hw_stop_capture(ctx->hw_ctx, false);
 		while((rpkt = crystalhd_dioq_fetch(ctx->hw_ctx->rx_actq)) != NULL)
@@ -985,8 +1011,7 @@ BC_STATUS crystalhd_suspend(struct crystalhd_cmd *ctx, crystalhd_ioctl_data *ida
 		if (sts != BC_STS_SUCCESS)
 			return sts;
 	}
-	else
-	{
+	else if (ctx->hw_ctx) {
 		// Even if there is no active TX DMA need to stop and reset TX DMA pointers
 		ctx->hw_ctx->pfnStopTxDMA(ctx->hw_ctx);
 	}
@@ -1022,6 +1047,11 @@ BC_STATUS crystalhd_resume(struct crystalhd_cmd *ctx)
 {
 	BC_STATUS sts = BC_STS_SUCCESS;
 
+	if (!ctx) {
+		dev_err(chddev(), "%s: Invalid Arg\n", __func__);
+		return BC_STS_INV_ARG;
+	}
+
 	sts = crystalhd_hw_resume(ctx->hw_ctx);
 	if (sts != BC_STS_SUCCESS)
 		return sts;
@@ -1054,13 +1084,13 @@ BC_STATUS crystalhd_user_open(struct crystalhd_cmd *ctx,
 	struct crystalhd_user *uc;
 
 	if (!ctx || !user_ctx) {
-		dev_err(dev, "Invalid arg..\n");
+		dev_err(dev, "%s: Invalid Arg\n", __func__);
 		return BC_STS_INV_ARG;
 	}
 
 	uc = bc_cproc_get_uid(ctx);
 	if (!uc) {
-		dev_info(dev, "No free user context...\n");
+		dev_info(dev, "%s No free user context.\n", __func__);
 		return BC_STS_BUSY;
 	}
 
@@ -1098,19 +1128,21 @@ BC_STATUS crystalhd_user_open(struct crystalhd_cmd *ctx,
  *
  * Called at the time of driver load.
  */
-BC_STATUS __init crystalhd_setup_cmd_context(struct crystalhd_cmd *ctx,
+BC_STATUS crystalhd_setup_cmd_context(struct crystalhd_cmd *ctx,
 				    struct crystalhd_adp *adp)
 {
-	struct device *dev = &adp->pdev->dev;
+	struct device *dev;
 	int i = 0;
 
-	if (!ctx || !adp) {
-		dev_err(dev, "%s: Invalid arg\n", __func__);
+	if (!ctx || !adp || !adp->pdev) {
+		printk(KERN_ERR "%s: Invalid arg.\n", __func__);
 		return BC_STS_INV_ARG;
 	}
 
+	dev = &adp->pdev->dev;
+
 	if (ctx->adp)
-		dev_dbg(dev, "Resetting Cmd context delete missing..\n");
+		dev_dbg(dev, "Resetting Cmd context delete missing.\n");
 
 	ctx->adp = adp;
 	for (i = 0; i < BC_LINK_MAX_OPENS; i++) {
@@ -1119,15 +1151,19 @@ BC_STATUS __init crystalhd_setup_cmd_context(struct crystalhd_cmd *ctx,
 		ctx->user[i].mode = DTS_MODE_INV;
 	}
 
-	ctx->hw_ctx = (struct crystalhd_hw*)kmalloc(sizeof(struct crystalhd_hw), GFP_KERNEL);
+	if(ctx->hw_ctx == NULL) {
+		ctx->hw_ctx = (struct crystalhd_hw*)kmalloc(sizeof(struct crystalhd_hw), GFP_KERNEL);
+		if(ctx->hw_ctx != NULL)
+			memset(ctx->hw_ctx, 0, sizeof(struct crystalhd_hw));
+		else
+			return BC_STS_ERROR;
 
-	memset(ctx->hw_ctx, 0, sizeof(struct crystalhd_hw));
-
-	/*Open and Close the Hardware to put it in to sleep state*/
-	crystalhd_hw_open(ctx->hw_ctx, ctx->adp);
-	crystalhd_hw_close(ctx->hw_ctx, ctx->adp);
-	kfree(ctx->hw_ctx);
-	ctx->hw_ctx = NULL;
+		/*Open and Close the Hardware to put it in to sleep state*/
+		crystalhd_hw_open(ctx->hw_ctx, ctx->adp);
+		crystalhd_hw_close(ctx->hw_ctx, ctx->adp);
+		kfree(ctx->hw_ctx);
+		ctx->hw_ctx = NULL;
+	}
 
 	return BC_STS_SUCCESS;
 }
@@ -1141,9 +1177,14 @@ BC_STATUS __init crystalhd_setup_cmd_context(struct crystalhd_cmd *ctx,
  *
  * Called at the time of driver un-load.
  */
-BC_STATUS __exit crystalhd_delete_cmd_context(struct crystalhd_cmd *ctx)
+BC_STATUS crystalhd_delete_cmd_context(struct crystalhd_cmd *ctx)
 {
 	dev_dbg(chddev(), "Deleting Command context..\n");
+
+	if (!ctx) {
+		dev_err(chddev(), "%s: Invalid arg\n", __func__);
+		return BC_STS_INV_ARG;
+	}
 
 	ctx->adp = NULL;
 
@@ -1170,8 +1211,8 @@ crystalhd_cmd_proc crystalhd_get_cmd_proc(struct crystalhd_cmd *ctx, uint32_t cm
 	crystalhd_cmd_proc cproc = NULL;
 	unsigned int i, tbl_sz;
 
-	if (!ctx) {
-		dev_err(dev, "Invalid arg.. Cmd[%d]\n", cmd);
+	if (!ctx || !uc) {
+		dev_err(dev, "Invalid arg. Cmd[%d]\n", cmd);
 		return NULL;
 	}
 

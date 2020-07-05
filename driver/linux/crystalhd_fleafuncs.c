@@ -1358,7 +1358,9 @@ BCHP_SCRUB_CTRL_BI_CMAC_127_96		0x000f6018			CMAC Bits[127:96]
 bool crystalhd_flea_start_device(struct crystalhd_hw *hw)
 {
 	uint32_t	regVal	= 0;
-	bool		bRetVal = false;
+
+	if (!hw)
+		return false;
 
 	/*
 	-- Issue Core reset to bring in the default values in place
@@ -1444,7 +1446,7 @@ bool crystalhd_flea_start_device(struct crystalhd_hw *hw)
 
 	msleep_interruptible(1);
 
-	return bRetVal;
+	return true;
 }
 
 
